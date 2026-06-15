@@ -31,7 +31,7 @@ export default function ApplyPage() {
     defaultValues: { interests: [], setups: [] } as Partial<FormData>,
   })
 
-  const watchDob = form.watch('dob' as never) as string | undefined
+  const watchDob = (form.watch as (name: string) => unknown)('dob') as string | undefined
   const age = watchDob ? computeAge(watchDob) : null
   const isMinor = age !== null && age < 18
 
