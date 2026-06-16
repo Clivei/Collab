@@ -12,6 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="font-semibold text-sm">NoraPadel Admin</div>
         <nav className="flex items-center gap-6 text-sm text-zinc-500">
           <a href="/admin/dashboard" className="hover:text-zinc-900 transition-colors">Dashboard</a>
+          <a href="/admin/sessions" className="hover:text-zinc-900 transition-colors">Sessions</a>
           <a href="/admin/board" className="hover:text-zinc-900 transition-colors">Concept Board</a>
           <a href="/apply" className="hover:text-zinc-900 transition-colors" target="_blank">Public Form ↗</a>
         </nav>
