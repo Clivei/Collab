@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Sparkles } from 'lucide-react'
+import { ArrowLeft, Sparkles } from 'lucide-react'
 import { museSchema, photographerSchema, stylistSchema, muaSchema, type MuseFormData, type PhotographerFormData, type StylistFormData, type MuaFormData } from '@/lib/validations'
 import { computeAge } from '@/lib/utils'
 import { RoleSelector } from '@/components/intake/RoleSelector'
@@ -44,15 +44,14 @@ export default function ApplyPage() {
     setError(null)
     try {
       const supabase = createClient()
+      const id = crypto.randomUUID()
       const { full_name, wa_number, notes, role: _role, ...rest } = data as Record<string, unknown>
       const details = rest
-      const { data: row, error: dbError } = await supabase
+      const { error: dbError } = await supabase
         .from('submissions')
-        .insert({ full_name, wa_number, notes, role, details })
-        .select('id')
-        .single()
+        .insert({ id, full_name, wa_number, notes, role, details })
       if (dbError) throw dbError
-      setSubmissionId(row.id)
+      setSubmissionId(id)
       setSubmitted(true)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
@@ -73,8 +72,14 @@ export default function ApplyPage() {
             Thanks for applying to collaborate with NoraPadel. We&apos;ll reach out via WhatsApp when there&apos;s a session that matches your profile.
           </p>
           {submissionId && (
-            <p className="text-xs text-zinc-400">Reference: {submissionId}</p>
+            <p className="text-xs text-zinc-400 mb-6">Reference: {submissionId}</p>
           )}
+          <button
+            onClick={() => { setSubmitted(false); setRole(null); form.reset() }}
+            className="text-sm text-amber-600 hover:underline"
+          >
+            Submit another application
+          </button>
         </div>
       </div>
     )
@@ -92,11 +97,19 @@ export default function ApplyPage() {
           <RoleSelector onSelect={(r) => { setRole(r); form.setValue('role' as never, r as never) }} />
         ) : (
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Back button */}
+            <button
+              type="button"
+              onClick={() => { setRole(null); form.reset() }}
+              className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back
+            </button>
+
             <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-6 space-y-5">
               <div className="flex items-center gap-2 pb-2 border-b border-zinc-100">
                 <span className="text-sm font-medium text-zinc-400">Role:</span>
-                <span className="text-sm font-semibold capitalize">{role === 'mua' ? 'MUA' : role === 'photographer' ? 'Photographer / Videographer' : role === 'muse' ? 'Muse / Model' : 'Stylist'}</span>
-                <button type="button" onClick={() => setRole(null)} className="ml-auto text-xs text-amber-600 hover:underline">Change</button>
+                <span className="text-sm font-semibold">{role === 'mua' ? 'MUA' : role === 'photographer' ? 'Photographer / Videographer' : role === 'muse' ? 'Muse / Model' : 'Stylist'}</span>
               </div>
 
               <div className="space-y-4">
