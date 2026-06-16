@@ -29,9 +29,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
+  if (request.nextUrl.pathname.startsWith('/portal') && !user) {
+    return NextResponse.redirect(new URL('/auth/signup', request.url))
+  }
+
   return supabaseResponse
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/portal/:path*'],
 }

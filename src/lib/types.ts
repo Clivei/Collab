@@ -52,6 +52,57 @@ export interface Submission {
   updated_at: string
 }
 
+export interface CardImage {
+  id: string
+  card_id: string
+  url: string
+  type: 'upload' | 'gdrive'
+  caption?: string
+  uploaded_by?: string
+  created_at: string
+}
+
+export interface CardComment {
+  id: string
+  card_id: string
+  user_id?: string
+  author_name: string
+  content: string
+  created_at: string
+}
+
+export interface ConceptCard {
+  id: string
+  title: string
+  description?: string
+  cover_image_url?: string
+  cover_image_type?: 'upload' | 'gdrive'
+  tags: string[]
+  session_id?: string
+  created_by?: string
+  status: 'idea' | 'active' | 'done'
+  created_at: string
+  updated_at: string
+  card_images?: CardImage[]
+  card_comments?: CardComment[]
+}
+
+export interface Message {
+  id: string
+  chat_id: string
+  sender_id?: string
+  sender_name: string
+  body?: string
+  attachment_url?: string
+  created_at: string
+}
+
+export interface Chat {
+  id: string
+  session_id: string
+  created_at: string
+}
+
 export interface Session {
   id: string
   title: string

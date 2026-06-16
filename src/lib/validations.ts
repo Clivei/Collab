@@ -8,6 +8,7 @@ const mediaValueSchema = z.object({
 const commonSchema = z.object({
   full_name: z.string().min(1, 'Full name is required'),
   wa_number: z.string().min(8, 'WhatsApp number is required'),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
   notes: z.string().optional(),
 })
 

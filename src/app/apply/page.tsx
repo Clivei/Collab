@@ -45,11 +45,11 @@ export default function ApplyPage() {
     try {
       const supabase = createClient()
       const id = crypto.randomUUID()
-      const { full_name, wa_number, notes, role: _role, ...rest } = data as Record<string, unknown>
+      const { full_name, wa_number, email, notes, role: _role, ...rest } = data as Record<string, unknown>
       const details = rest
       const { error: dbError } = await supabase
         .from('submissions')
-        .insert({ id, full_name, wa_number, notes, role, details })
+        .insert({ id, full_name, wa_number, email: email || null, notes, role, details })
       if (dbError) throw dbError
       setSubmissionId(id)
       setSubmitted(true)
@@ -122,6 +122,12 @@ export default function ApplyPage() {
                   <label className="block text-sm font-medium mb-1.5">WhatsApp Number <span className="text-red-500">*</span></label>
                   <input {...form.register('wa_number')} className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" placeholder="+62 812 3456 7890" />
                   {form.formState.errors.wa_number && <p className="text-xs text-red-500 mt-1">{(form.formState.errors.wa_number as {message?: string})?.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">
+                    Email <span className="text-zinc-400 font-normal text-xs">(optional — needed for project portal access)</span>
+                  </label>
+                  <input {...form.register('email')} type="email" className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" placeholder="you@email.com" />
                 </div>
               </div>
 
