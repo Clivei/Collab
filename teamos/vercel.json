@@ -1,0 +1,9 @@
+{
+  "crons": [
+    { "path": "/api/cron/morning", "schedule": "0 2 * * 1-5" },
+    { "path": "/api/cron/evening", "schedule": "0 10 * * 1-5" },
+    { "path": "/api/cron/evening", "schedule": "0 11 * * 1-5" },
+    { "path": "/api/cron/daily-recap", "schedule": "30 10 * * 1-5" },
+    { "path": "/api/cron/monthly-report", "schedule": "0 0 1 * *" }
+  ]
+}
