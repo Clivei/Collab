@@ -46,9 +46,9 @@ Using pg_cron instead? Hit the same endpoints with `?secret=$CRON_SECRET`.
 ```bash
 cd teamos && npm install && npm run dev
 ```
-Sign in as owner → **Admin → Settings** → paste the real NORA P coordinates
-(seed has a Surabaya placeholder), adjust hours/radius. Then activate the
-`not_started` hires from the Command Dashboard when they actually start.
+Sign in as owner → **Admin → Settings** to review hours/radius. The NORA P pin
+(-7.278475, 112.632539) is already seeded. Then activate the `not_started`
+hires from the Command Dashboard when they actually start.
 
 ## PWA / push notes
 Push only works when the app is **installed** (Add to Home Screen). iOS Safari

@@ -22,9 +22,9 @@ create type comment_moderation as enum ('pending','approved','redacted','hidden'
 create table entities (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
-  -- TODO: paste the real NORA P pin from Google Maps in Settings (seeded placeholder)
-  office_lat double precision not null default -7.2891,
-  office_lng double precision not null default 112.7378,
+  -- NORA P pin (hardcoded per owner) — adjustable later in Settings
+  office_lat double precision not null default -7.278475,
+  office_lng double precision not null default 112.632539,
   geofence_radius_m integer not null default 200,
   work_start_time time not null default '09:00',
   work_end_time time not null default '17:00',

@@ -50,8 +50,8 @@ export default async function SettingsPage() {
         </form>
       ))}
       <p className="text-xs text-neutral-400">
-        Koordinat default masih placeholder — tempel pin NORA P yang asli dari Google Maps (klik kanan
-        → salin koordinat).
+        Koordinat default = pin NORA P (-7.278475, 112.632539). Kalau kantor pindah, tempel pin baru
+        dari Google Maps (klik kanan → salin koordinat).
       </p>
     </div>
   );
