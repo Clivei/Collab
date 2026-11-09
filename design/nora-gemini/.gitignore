@@ -1,0 +1,4 @@
+renders/turntable/
+renders/quick_*
+__pycache__/
+*.blend1
