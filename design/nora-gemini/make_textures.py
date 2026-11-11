@@ -28,8 +28,7 @@ import nora_geometry as G  # noqa: E402
 
 PX = 8                      # pixels per mm
 SS = 2                      # supersampling for vector shapes
-X0, X1 = -130.0, 130.0
-Z0, Z1 = 140.0, 460.0
+X0, X1, Z0, Z1 = G.TEX_BOUNDS
 W = int((X1 - X0) * PX)
 H = int((Z1 - Z0) * PX)
 OUT = os.path.join(HERE, "textures")
@@ -177,6 +176,14 @@ def text_mask(text, cx_mm, cz_mm, cap_mm, tracking=0.25, font=FONT):
     return np.asarray(im, np.float32) / 255.0
 
 
+def rounded_rect_mask(cx_mm, cz_mm, w_mm, h_mm, r_mm, stroke_mm):
+    """Outline of a rounded rectangle (badge frame)."""
+    def fn(d):
+        box = [to_px((cx_mm - w_mm / 2, cz_mm + h_mm / 2)), to_px((cx_mm + w_mm / 2, cz_mm - h_mm / 2))]
+        d.rounded_rectangle(box, radius=r_mm * PX * SS, outline=255, width=max(1, int(stroke_mm * PX * SS)))
+    return mask(fn)
+
+
 def roman_mask(n, cx_mm, cz_mm, height_mm, stroke_mm=2.6, gap_mm=2.6):
     """Classic serif Roman numeral I / II, drawn as geometry (crisp, font-free)."""
     serif_w = stroke_mm * 2.4
@@ -214,9 +221,9 @@ m_border = m_inside * (1 - m_border_in)                  # exposed fibre band
 m_keyline_edge = m_border_in * (1 - m_key_in)            # thin white line
 
 # thin keyline around the twin throat openings
-for op in G.throat_openings():
-    o_a = poly_mask(G.offset_polygon(op, G.EDGE_RADIUS + 1.2))
-    o_b = poly_mask(G.offset_polygon(op, G.EDGE_RADIUS + 2.1))
+for op in G.throat_windows():
+    o_a = poly_mask(G.offset_polygon(op, G.WINDOW_FILLET + 1.0))
+    o_b = poly_mask(G.offset_polygon(op, G.WINDOW_FILLET + 1.9))
     m_keyline_edge = np.maximum(m_keyline_edge, np.clip(o_b - o_a, 0, 1))
 
 bars = [G.glyph_bar(True), G.glyph_bar(False)]
@@ -243,18 +250,20 @@ m_glyph, m_glyph_key = glyph_masks()
 # logo + model name in the clean zone between the throat and the holes
 logo_img = load_logo_mask()
 m_logo = np.zeros((H, W), np.float32)
-logo_h = paste_mask(m_logo, logo_img, 0.0, 277.0, 92.0)
-m_name = text_mask("GEMINI", 0.0, 261.0, 5.2, tracking=0.42)
+logo_h = paste_mask(m_logo, logo_img, 0.0, G.LOGO_Z, 84.0)
+m_name = text_mask("GEMINI", 0.0, G.NAME_Z, 4.2, tracking=0.42)
 
 
 def label_masks(numeral):
     """Small Roman numeral label on the throat bridge + numeral under the name."""
-    bridge = roman_mask(numeral, 0.0, 218.0, 14.0, stroke_mm=1.9, gap_mm=1.4)
+    w = 14.0 if numeral == 1 else 19.0
+    badge = rounded_rect_mask(0.0, G.LABEL_Z, w, 11.5, 2.6, stroke_mm=0.8)
+    bridge = np.maximum(badge, roman_mask(numeral, 0.0, G.LABEL_Z, 7.4, stroke_mm=1.35, gap_mm=1.2))
     return bridge
 
 
 def face_spec(face_text):
-    return text_mask(face_text, 0.0, 252.5, 2.1, tracking=0.30,
+    return text_mask(face_text, 0.0, G.SPEC_Z, 1.9, tracking=0.30,
                      font="/usr/share/fonts/opentype/inter/InterDisplay-Medium.otf")
 
 
@@ -350,10 +359,10 @@ def preview():
     b = Image.open(os.path.join(OUT, "face_II_color.png")).transpose(Image.FLIP_LEFT_RIGHT)
     holes = Image.new("L", (W, H), 0)
     d = ImageDraw.Draw(holes)
-    for (x, z) in G.hole_centres():
-        r = G.HOLE_D / 2
+    for (x, z, dd) in G.holes():
+        r = dd / 2
         d.ellipse([to_px((x - r, z + r), 1), to_px((x + r, z - r), 1)], fill=255)
-    for op in G.throat_openings():
+    for op in G.throat_windows():
         d.polygon([to_px(p, 1) for p in op], fill=255)
     cut = Image.fromarray(((1 - m_inside) * 255).astype(np.uint8))
     holes = Image.fromarray(np.maximum(np.asarray(holes), np.asarray(cut)))

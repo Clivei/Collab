@@ -1,79 +1,83 @@
 """
-NORA GEMINI - shared 2D geometry (pure Python, no dependencies).
+NORA GEMINI - shared geometry of the production mould (pure Python, no deps).
 
-All values are in millimetres, in the plane of the hitting face:
+The mould is the OXDOG Ultimate Pro Light frame, traced 1:1 from the reference
+photos by trace_oxdog_mould.py into oxdog_mould_trace.json:
+outline, the 68 holes (two sizes), the three throat windows (inverted-Y
+bridge), the thickness taper of the throat and the handle envelope.
+
+All values are millimetres, in the plane of the hitting face:
     x = across the face (width), 0 = centre line
-    z = along the racket (length), 0 = butt of the handle, 455 = top of the frame
+    z = along the racket (length), 0 = butt of the handle, 453 = top of frame
+Thickness runs along y (Blender: FACE I at -y, FACE II at +y).
 
-Used by both make_textures.py (artwork) and build_nora_gemini.py (Blender),
-so holes, throat openings and printed graphics always line up.
-
-The head outline follows the diamond / teardrop frame of the reference
-OXDOG-style mould: flat-ish top, widest ~75 mm below the top, long taper
-into an open throat and the handle.
+Used by make_textures.py (artwork), build_nora_gemini.py (Blender) and
+export_production.py (factory SVG / CSV) so everything stays in register.
 """
+import json
 import math
+import os
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(_HERE, "oxdog_mould_trace.json")) as _f:
+    TRACE = json.load(_f)
 
 # ----------------------------------------------------------------- dimensions
-LENGTH = 455.0          # max legal length is 455 mm
-WIDTH = 260.0           # max legal width is 260 mm
-THICKNESS = 38.0        # max legal thickness is 38 mm
-EDGE_RADIUS = 5.0       # rounded edge of the frame (bevel)
-HOLE_D = 11.0           # hole diameter
-BODY_BOTTOM = 140.0     # frame continues 10 mm into the handle collar
+LENGTH = TRACE["total_length"]            # 453 mm
+THICKNESS = TRACE["frame_profile"]        # 38 mm head
+EDGE_RADIUS = 5.0                         # rounded outer edge of the frame
+WINDOW_FILLET = 1.5                       # rounded edges of the throat windows
+NECK_Z = TRACE["neck_z"]                  # narrowest point of the throat
+BODY_BOTTOM = 128.0                       # frame runs on inside the collar
 
-# handle
-BUTT_CAP = (0.0, 14.0)          # z range
-GRIP = (14.0, 147.0)            # z range
-COLLAR = (147.0, 168.0)         # z range
-HANDLE_HALF_X = 17.5            # half width of the grip core
-HANDLE_HALF_Y = 19.0            # half depth of the grip core (= half thickness)
+# handle (from the front + side silhouettes), half sizes in mm
+BUTT_CAP = (0.0, 8.0)
+GRIP = (8.0, 126.0)
+COLLAR = (126.0, 140.0)
+# (z, half_x, half_y) rings of the grip incl. overgrip: flared butt, oval grip
+GRIP_RINGS = [
+    (8.0, 21.2, 17.6), (20.0, 21.0, 17.8), (28.0, 19.4, 16.6), (36.0, 18.2, 15.4),
+    (46.0, 17.4, 14.2), (56.0, 17.3, 13.5), (110.0, 17.3, 13.6), (126.0, 17.9, 14.6),
+]
+BUTT_RINGS = [(0.0, 19.0, 15.6), (2.0, 22.4, 17.0), (5.0, 23.1, 17.4), (8.0, 21.2, 17.6)]
+COLLAR_RINGS = [(126.0, 19.2, 15.6), (130.0, 19.9, 17.4), (136.0, 20.8, 18.0), (140.0, 20.2, 17.2)]
 
-# ------------------------------------------------- outline (right half, mm)
-# control points from the top centre, clockwise, down to the handle joint
-_RIGHT_HALF = [
-    (0.0, 455.0), (38.0, 454.0), (72.0, 450.0), (98.0, 442.0),
-    (116.0, 429.0), (126.5, 411.0), (129.85, 390.0), (128.9, 368.0),
-    (124.5, 344.0), (116.0, 316.0), (104.0, 287.0), (90.0, 260.0),
-    (74.0, 235.0), (58.0, 213.0), (44.0, 196.0), (32.0, 181.0),
-    (24.0, 166.0), (20.5, 153.0), (19.5, BODY_BOTTOM),
+# throat taper: frame thickness (y) vs z, from the side silhouette
+THICKNESS_TABLE = [
+    (128.0, 24.0), (140.0, 24.0), (150.0, 25.0), (160.0, 26.3), (170.0, 28.4),
+    (180.0, 31.2), (190.0, 33.1), (200.0, 34.3), (210.0, 35.5), (220.0, 36.5),
+    (235.0, 37.3), (250.0, 38.0), (LENGTH + 5.0, 38.0),
 ]
 
-
-def _catmull_rom(points, samples_per_seg=24, closed=False):
-    """Centripetal-ish uniform Catmull-Rom through the given points."""
-    pts = list(points)
-    n = len(pts)
-    out = []
-    seg_count = n if closed else n - 1
-    for i in range(seg_count):
-        p0 = pts[(i - 1) % n] if closed else pts[max(i - 1, 0)]
-        p1 = pts[i % n]
-        p2 = pts[(i + 1) % n] if closed else pts[min(i + 1, n - 1)]
-        p3 = pts[(i + 2) % n] if closed else pts[min(i + 2, n - 1)]
-        for s in range(samples_per_seg):
-            t = s / samples_per_seg
-            t2, t3 = t * t, t * t * t
-            out.append(tuple(
-                0.5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * t
-                       + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2
-                       + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3)
-                for k in range(2)))
-    if not closed:
-        out.append(pts[-1])
-    return out
+# Power Ribs: moulded grooves across the upper side edges of the frame
+RIBS = dict(start_z=378.0, count=10, pitch=9.5, width=1.6, depth=1.0, half_span=13.0)
 
 
-def head_outline(samples_per_seg=24):
-    """Closed outline of the frame body (counter-clockwise, no repeat)."""
-    # mirror so the spline is smooth across the top centre line
-    left = [(-x, z) for (x, z) in reversed(_RIGHT_HALF[1:])]
-    full = left + _RIGHT_HALF                      # left-bottom -> top -> right-bottom
-    curve = _catmull_rom(full, samples_per_seg, closed=False)
-    # curve runs from (-19.5, 140) over the top to (19.5, 140); close along the bottom
-    # orientation: left-bottom -> top -> right-bottom is clockwise; reverse for CCW
-    curve = list(reversed(curve))
-    return curve
+def thickness_at(z):
+    t = THICKNESS_TABLE
+    if z <= t[0][0]:
+        return t[0][1]
+    for (z0, v0), (z1, v1) in zip(t[:-1], t[1:]):
+        if z0 <= z <= z1:
+            u = (z - z0) / (z1 - z0)
+            u = u * u * (3 - 2 * u)                  # smooth between samples
+            return v0 + (v1 - v0) * u
+    return t[-1][1]
+
+
+# ------------------------------------------------------------------ helpers
+def polygon_area(poly):
+    a = 0.0
+    for i in range(len(poly)):
+        x0, z0 = poly[i - 1]
+        x1, z1 = poly[i]
+        a += x0 * z1 - x1 * z0
+    return a * 0.5
+
+
+def ccw(poly):
+    poly = [tuple(p) for p in poly]
+    return poly if polygon_area(poly) > 0 else list(reversed(poly))
 
 
 def offset_polygon(poly, d):
@@ -90,25 +94,14 @@ def offset_polygon(poly, d):
     return out
 
 
-def polygon_area(poly):
-    a = 0.0
-    for i in range(len(poly)):
-        x0, z0 = poly[i - 1]
-        x1, z1 = poly[i]
-        a += x0 * z1 - x1 * z0
-    return a * 0.5
-
-
 def point_in_polygon(p, poly):
     x, z = p
     inside = False
-    n = len(poly)
-    for i in range(n):
+    for i in range(len(poly)):
         x0, z0 = poly[i - 1]
         x1, z1 = poly[i]
         if (z0 > z) != (z1 > z):
-            xi = x0 + (z - z0) * (x1 - x0) / (z1 - z0)
-            if xi > x:
+            if x0 + (z - z0) * (x1 - x0) / (z1 - z0) > x:
                 inside = not inside
     return inside
 
@@ -122,131 +115,148 @@ def distance_to_polygon(p, poly):
         vx, vz = bx - ax, bz - az
         L2 = vx * vx + vz * vz or 1e-12
         t = max(0.0, min(1.0, ((px - ax) * vx + (pz - az) * vz) / L2))
-        cx, cz = ax + t * vx, az + t * vz
-        best = min(best, math.hypot(px - cx, pz - cz))
+        best = min(best, math.hypot(px - (ax + t * vx), pz - (az + t * vz)))
     return best
 
 
-# --------------------------------------------------------- throat openings
-def rounded_polygon(corners, radius, arc_steps=10, round_idx=None):
-    """Polygon with corners rounded by `radius` (corners given CCW).
-
-    round_idx: optional set of vertex indices to round (others are kept)."""
-    n = len(corners)
-    out = []
-    for i in range(n):
-        if round_idx is not None and i not in round_idx:
-            out.append(corners[i])
-            continue
-        p_prev = corners[i - 1]
-        p = corners[i]
-        p_next = corners[(i + 1) % n]
-        v1 = (p_prev[0] - p[0], p_prev[1] - p[1])
-        v2 = (p_next[0] - p[0], p_next[1] - p[1])
-        l1, l2 = math.hypot(*v1), math.hypot(*v2)
-        u1 = (v1[0] / l1, v1[1] / l1)
-        u2 = (v2[0] / l2, v2[1] / l2)
-        cos_a = max(-1.0, min(1.0, u1[0] * u2[0] + u1[1] * u2[1]))
-        ang = math.acos(cos_a)
-        t = radius / math.tan(ang / 2)             # distance from corner to tangent points
-        bis = (u1[0] + u2[0], u1[1] + u2[1])
-        lb = math.hypot(*bis)
-        bis = (bis[0] / lb, bis[1] / lb)
-        c = (p[0] + bis[0] * radius / math.sin(ang / 2),
-             p[1] + bis[1] * radius / math.sin(ang / 2))
-        a_start = (p[0] + u1[0] * t, p[1] + u1[1] * t)
-        a_end = (p[0] + u2[0] * t, p[1] + u2[1] * t)
-        s0 = math.atan2(a_start[1] - c[1], a_start[0] - c[0])
-        s1 = math.atan2(a_end[1] - c[1], a_end[0] - c[0])
-        d = s1 - s0
-        while d > math.pi:
-            d -= 2 * math.pi
-        while d < -math.pi:
-            d += 2 * math.pi
-        for k in range(arc_steps + 1):
-            a = s0 + d * k / arc_steps
-            out.append((c[0] + radius * math.cos(a), c[1] + radius * math.sin(a)))
+def _resample(poly, step):
+    """Resample a closed polygon at a constant arc-length step."""
+    pts = list(poly) + [poly[0]]
+    seg = [math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts[:-1], pts[1:])]
+    total = sum(seg)
+    n = max(8, int(total / step))
+    out, acc, i = [], 0.0, 0
+    for k in range(n):
+        s = k * total / n
+        while acc + seg[i] < s:
+            acc += seg[i]
+            i += 1
+        u = (s - acc) / (seg[i] or 1)
+        a, b = pts[i], pts[i + 1]
+        out.append((a[0] + u * (b[0] - a[0]), a[1] + u * (b[1] - a[1])))
     return out
 
 
-BRIDGE_HALF = 12.0    # the central bridge between the twin openings is 24 mm wide
+# ---------------------------------------------------------------- outline
+def head_outline(step=0.6):
+    """Closed CCW outline of the frame body (head + throat) down to BODY_BOTTOM."""
+    right = [tuple(p) for p in TRACE["outline_right"] if p[1] >= 147.0]   # top centre -> neck
+    # smooth blend (cubic Bezier) from the traced throat into the vertical neck
+    (xa, za), (xb, zb) = right[-2], right[-1]
+    L = math.hypot(xb - xa, zb - za)
+    da = ((xb - xa) / L, (zb - za) / L)
+    neck_x, neck_z = 17.0, 138.0
+    p0, p3 = (xb, zb), (neck_x, neck_z)
+    h = 0.45 * math.hypot(p3[0] - p0[0], p3[1] - p0[1])
+    p1 = (p0[0] + da[0] * h, p0[1] + da[1] * h)
+    p2 = (p3[0], p3[1] + h)
+    for k in range(1, 13):
+        t = k / 12
+        u = 1 - t
+        right.append(tuple(u ** 3 * a + 3 * u * u * t * b + 3 * u * t * t * c + t ** 3 * d
+                           for a, b, c, d in zip(p0, p1, p2, p3)))
+    # hidden inside the collar: run straight down, then a 6 mm rounded corner
+    # (the 5 mm edge bevel needs corners rounder than itself)
+    rc = 6.0
+    right = right + [(neck_x, BODY_BOTTOM + rc)]
+    for k in range(1, 9):
+        a = math.radians(90 * k / 8)
+        right.append((neck_x - rc + rc * math.cos(a), BODY_BOTTOM + rc - rc * math.sin(a)))
+    # top -> down the right side -> across the bottom -> up the mirrored left side
+    loop = right + [(-x, z) for (x, z) in reversed(right)][:-1]
+    return ccw(_resample(loop, step))
 
 
-def throat_openings(frame_wall=16.0, top_z=241.0, corner_r=5.0):
-    """The two 'Gemini twin' throat openings, CCW each: (right, left).
+def _smooth_closed(poly, passes=3, k=2):
+    p = list(poly)
+    n = len(p)
+    for _ in range(passes):
+        p = [(sum(p[(i + j) % n][0] for j in range(-k, k + 1)) / (2 * k + 1),
+              sum(p[(i + j) % n][1] for j in range(-k, k + 1)) / (2 * k + 1)) for i in range(n)]
+    return p
 
-    Inner edge = the 18 mm central bridge, top edge = bottom of the hitting
-    face, outer edge = follows the frame curve at a constant wall thickness.
-    """
-    inset = offset_polygon(head_outline(), -frame_wall)
-    # right-hand side of the inset outline between the bridge and top_z
-    side = [p for p in inset if p[0] > BRIDGE_HALF + 1.0 and 172.0 < p[1] <= top_z + 6.0]
-    side.sort(key=lambda p: p[1])
-    # exact point where the inner wall meets the top edge (interpolated)
-    x_top = None
-    for p, q in zip(side[:-1], side[1:]):
-        if p[1] <= top_z <= q[1]:
-            t = (top_z - p[1]) / (q[1] - p[1])
-            x_top = p[0] + t * (q[0] - p[0])
-    lo = side[0]
-    # keep the wall points well clear of the two rounded corners
-    bottom = (BRIDGE_HALF, lo[1] + 2.0)
-    wall = [p for p in side
-            if math.hypot(p[0] - bottom[0], p[1] - bottom[1]) > 17.0 and p[1] < top_z - 9.0][::4]
-    # walk CCW: bridge-top -> bridge-bottom -> up the outer wall -> top-outer corner
-    pts = [(BRIDGE_HALF, top_z), bottom] + wall + [(x_top, top_z)]
-    n = len(pts)
-    right = rounded_polygon(pts, corner_r, arc_steps=8, round_idx={0, 1, n - 1})
-    left = [(-x, z) for (x, z) in reversed(right)]
-    return right, left
+
+def throat_windows():
+    """The three throat windows (right, left, centre), CCW, mm.
+    Lightly smoothed (< 0.5 mm) so every bend is rounder than the fillet."""
+    right = ccw(_smooth_closed(_resample(ccw(TRACE["window_right"]), 0.7)))
+    left = ccw([(-x, z) for (x, z) in right])
+    centre = ccw(_smooth_closed(_resample(ccw(TRACE["window_centre"]), 0.7)))
+    return right, left, centre
+
+
+throat_openings = throat_windows        # backwards-compatible name
 
 
 # ------------------------------------------------------------------- holes
-def hole_centres(spacing=23.5, z_min=294.0, edge_clear=17.0):
-    """Staggered (hexagonal) hole pattern, symmetric about the centre line."""
-    outline = head_outline()
-    dz = spacing * math.sqrt(3) / 2
-    holes = []
-    row = 0
-    z = z_min
-    while z < LENGTH:
-        shift = 0.0 if row % 2 == 0 else spacing / 2
-        k = 0
-        while True:
-            x = shift + k * spacing
-            if x > WIDTH / 2:
-                break
-            for sx in ((x,) if x == 0 else (x, -x)):
-                p = (sx, z)
-                if point_in_polygon(p, outline) and distance_to_polygon(p, outline) >= edge_clear:
-                    holes.append(p)
+HOLE_SMALL, HOLE_LARGE = 8.0, 10.0      # the mould uses two drill sizes
+
+
+def holes():
+    """[(x, z, d)] - traced positions, diameters snapped to the two drill sizes."""
+    return [(x, z, HOLE_SMALL if d < 8.6 else HOLE_LARGE) for (x, z, d) in TRACE["holes"]]
+
+
+def hole_centres():
+    return [(x, z) for (x, z, _) in holes()]
+
+
+HOLE_D = HOLE_LARGE                     # nominal (largest) hole
+
+
+# ------------------------------------------------------------------ ribs
+def rib_stations():
+    """Rib positions on the outline: [(x, z, nx, nz)] for both sides."""
+    o = head_outline(0.25)
+    # walk the right-hand side from the start height up toward the top centre
+    right = [p for p in o if p[0] > 0]
+    # order by angle from the head centre, going up from the side
+    cz = 330.0
+    right.sort(key=lambda p: math.atan2(p[1] - cz, p[0]))
+    start = min(range(len(right)), key=lambda i: abs(right[i][1] - RIBS["start_z"]) + (0 if right[i][0] > 80 else 1e3))
+    out, acc, k = [], 0.0, 0
+    for i in range(start, len(right) - 1):
+        a, b = right[i], right[i + 1]
+        if acc >= k * RIBS["pitch"]:
+            tx, tz = b[0] - a[0], b[1] - a[1]
+            L = math.hypot(tx, tz) or 1
+            nx, nz = tz / L, -tx / L
+            if nx * a[0] + nz * (a[1] - cz) < 0:
+                nx, nz = -nx, -nz
+            out.append((a[0], a[1], nx, nz))
             k += 1
-        row += 1
-        z += dz
-    return holes
+            if k == RIBS["count"]:
+                break
+        acc += math.hypot(b[0] - a[0], b[1] - a[1])
+    return out + [(-x, z, -nx, nz) for (x, z, nx, nz) in out]
 
 
 # ----------------------------------------------------- face artwork shapes
 # The face graphic is the Gemini glyph (two pillars + bowed bars, like the
-# zodiac sign) - which also reads as the Roman numeral II.
+# zodiac sign) - which also reads as the Roman numeral II.  Its pillars run
+# in the hole-free lanes of the OXDOG pattern (x ~ +/-42.5 mm).
 GLYPH = dict(
-    pillar_x=40.0, pillar_w=20.0, pillar_z=(300.0, 400.0),
-    bar_half_len=80.0, bar_t=15.0,
-    top_z=405.0, bot_z=297.0, bow=11.0,
+    pillar_x=42.6, pillar_w=10.5, pillar_z=(256.0, 410.0),
+    bar_half_len=68.0, bar_t=9.0,
+    top_z=408.6, bot_z=260.5, bow=-9.5,
 )
+TEX_BOUNDS = (-130.0, 130.0, 120.0, 460.0)   # face artwork image extent: x0, x1, z0, z1 (mm)
+LOGO_Z = 233.0          # NORA word-mark (clean band between holes and throat)
+NAME_Z = 222.0          # "GEMINI"
+SPEC_Z = 215.5          # small spec line
+LABEL_Z = 434.0         # small Roman numeral label, top centre
 
 
 def glyph_bar(top=True, steps=60):
     g = GLYPH
     L, t, bow = g["bar_half_len"], g["bar_t"], g["bow"]
     zc = g["top_z"] if top else g["bot_z"]
-    sgn = -1.0 if top else 1.0          # top bar droops at the ends, bottom bar lifts
+    sgn = 1.0 if top else -1.0          # top bar droops at the ends, bottom bar lifts
     upper, lower = [], []
     for i in range(steps + 1):
         x = -L + 2 * L * i / steps
         z = zc + sgn * bow * (x / L) ** 2
-        # end taper: bars get slimmer toward the tips
-        tt = t * (1.0 - 0.35 * (abs(x) / L) ** 3)
+        tt = t * (1.0 - 0.30 * (abs(x) / L) ** 3)
         upper.append((x, z + tt / 2))
         lower.append((x, z - tt / 2))
     return lower + list(reversed(upper))
@@ -264,10 +274,14 @@ if __name__ == "__main__":
     o = head_outline()
     xs = [p[0] for p in o]
     zs = [p[1] for p in o]
-    print("outline pts", len(o), "x", min(xs), max(xs), "z", min(zs), max(zs),
-          "area", polygon_area(o))
-    h = hole_centres()
-    print("holes", len(h))
-    r, l = throat_openings()
-    print("opening min clearance to frame edge:",
-          min(distance_to_polygon(p, o) for p in r))
+    print(f"outline pts {len(o)}  width {max(xs) - min(xs):.1f}  z {min(zs):.1f}..{max(zs):.1f}  "
+          f"area {polygon_area(o):.0f}")
+    h = holes()
+    print("holes", len(h), "small", sum(1 for x in h if x[2] == HOLE_SMALL),
+          "large", sum(1 for x in h if x[2] == HOLE_LARGE))
+    r, l, c = throat_windows()
+    gap = min(distance_to_polygon(p, l) for p in r)
+    leg = min(distance_to_polygon(p, c) for p in r)
+    wall = min(distance_to_polygon(p, o) for p in r)
+    print(f"throat: stem {gap:.1f} mm, legs {leg:.1f} mm, outer wall {wall:.1f} mm")
+    print("ribs", len(rib_stations()), [(round(x), round(z)) for x, z, *_ in rib_stations()[:10]])

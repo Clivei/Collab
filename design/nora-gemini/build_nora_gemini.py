@@ -7,8 +7,9 @@ or open this file in Blender's Text Editor and press "Run Script".
 Two faces, one frame:
     FACE I  (RED)  - 3K carbon, sand grit + 3D hexagon relief   (faces -Y)
     FACE II (BLUE) - 16K aluminized fibre, fine sand            (faces +Y)
-Frame mould: diamond / teardrop head (OXDOG reference), 38 mm thick,
-455 mm long, 260 mm wide, 66 x 11 mm holes, twin throat openings.
+Frame mould: OXDOG Ultimate Pro Light, traced 1:1 (trace_oxdog_mould.py):
+453 mm long, 249 mm wide, 38 mm head tapering to 24 mm at the neck,
+68 holes (8 / 10 mm), inverted-Y throat with 3 windows, 2 x 10 Power Ribs.
 
 Everything the script makes lives in the collections NORA_Gemini_Racket,
 NORA_Studio and in the scene "NORA_Hero_Twins"; re-running the script
@@ -329,8 +330,16 @@ def to_world_matrix():
     return Matrix.Rotation(math.radians(90), 4, "X") @ Matrix.Scale(MM, 4)
 
 
+def thickness_deform(bm):
+    """Throat taper: scale every vertex's y by thickness(z) / 38 mm."""
+    for v in bm.verts:
+        f = G.thickness_at(v.co.z / MM) / T
+        v.co.y *= f
+
+
 def build_body(coll, parent, mats):
-    """Frame + faces as one solid: filled 2D curve, extruded, round edges."""
+    """Frame + faces as one solid: filled 2D curve of the traced OXDOG outline,
+    extruded to 38 mm with a round 5 mm edge, then tapered through the throat."""
     cu = bpy.data.curves.new("CRV_body_tmp", "CURVE")
     cu.dimensions = "2D"
     cu.fill_mode = "BOTH"
@@ -338,18 +347,13 @@ def build_body(coll, parent, mats):
     cu.bevel_depth = R
     cu.bevel_resolution = 5
     cu.resolution_u = 1
-
-    def add_poly(pts):
-        sp = cu.splines.new("POLY")
-        sp.points.add(len(pts) - 1)
-        for p, (x, z) in zip(sp.points, pts):
-            p.co = (x, z, 0.0, 1.0)
-        sp.use_cyclic_u = True
-
-    # the bevel grows each spline by R -> pre-compensate so the final size is exact
-    add_poly(G.offset_polygon(G.head_outline(), -R))
-    for op in G.throat_openings():
-        add_poly(G.offset_polygon(op, +R))
+    sp = cu.splines.new("POLY")
+    # the bevel grows the spline by R -> pre-compensate so the final size is exact
+    pts = G.offset_polygon(G.head_outline(), -R)
+    sp.points.add(len(pts) - 1)
+    for p, (x, z) in zip(sp.points, pts):
+        p.co = (x, z, 0.0, 1.0)
+    sp.use_cyclic_u = True
     tmp = bpy.data.objects.new("tmp_body", cu)
     bpy.context.scene.collection.objects.link(tmp)
     dg = bpy.context.evaluated_depsgraph_get()
@@ -358,6 +362,7 @@ def build_body(coll, parent, mats):
     bpy.data.curves.remove(cu)
     me.name = "ME_NORA_Gemini_Body"
 
+    x0, x1, z0, z1 = G.TEX_BOUNDS
     bm = bmesh.new()
     bm.from_mesh(me)
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)       # weld caps to bevels (mm)
@@ -378,7 +383,13 @@ def build_body(coll, parent, mats):
             f.smooth = True
         for lp in f.loops:
             co = lp.vert.co
-            lp[uv].uv = ((co.x / MM + 130.0) / 260.0, (co.z / MM - 140.0) / 320.0)
+            lp[uv].uv = ((co.x / MM - x0) / (x1 - x0), (co.z / MM - z0) / (z1 - z0))
+    # even out the curve-fill triangulation of the two faces (long slivers upset the Booleans)
+    caps = [f for f in bm.faces if f.material_index in (0, 1)]
+    inner = [e for e in bm.edges if all(f.material_index in (0, 1) for f in e.link_faces) and not e.is_boundary
+             and len({f.material_index for f in e.link_faces}) == 1]
+    bmesh.ops.beautify_fill(bm, faces=caps, edges=inner)
+    thickness_deform(bm)
     bm.to_mesh(me)
     bm.free()
     for mt in mats:
@@ -387,27 +398,92 @@ def build_body(coll, parent, mats):
     return ob
 
 
-def build_hole_cutter(coll, parent, eva):
-    """All 66 holes in one cutter mesh (hidden), used by a live Boolean."""
+def hidden_cutter(ob, note):
+    ob.display_type = "WIRE"
+    ob.hide_render = True
+    ob.visible_camera = False
+    ob.visible_shadow = False
+    ob["nora_note"] = note
+    return ob
+
+
+def build_window_cutter(coll, parent, rim):
+    """The three throat windows (inverted-Y bridge) as filleted cutters:
+    straight walls through the core, 1.5 mm round-over into both faces."""
+    r = G.WINDOW_FILLET
+    # fillet rings stop just short of the face plane (a ring lying exactly on the
+    # face would be coplanar with it, which the Exact Boolean cannot resolve)
+    angles = [0, 16, 32, 48, 64, 80]
+    prof = [((T / 2 - r + r * math.sin(math.radians(a))), r * (1 - math.cos(math.radians(a)))) for a in angles]
+    prof.append((T / 2 + 2.0, r + 0.35))
+    levels = [(-y, off) for (y, off) in reversed(prof)] + prof
     bm = bmesh.new()
-    segs = 32
-    for (x, z) in G.hole_centres():
-        geom = bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=segs,
-                                     radius1=G.HOLE_D / 2 * MM, radius2=G.HOLE_D / 2 * MM,
-                                     depth=(T + 20) * MM)
-        m = Matrix.Translation((x * MM, 0, z * MM)) @ Matrix.Rotation(math.radians(90), 4, "X")
+    for win in G.throat_windows():
+        base = win
+        rings = []
+        for y, off in levels:
+            ring = G.offset_polygon(base, off) if off > 1e-6 else base
+            rings.append([bm.verts.new((x * MM, y * MM, z * MM)) for (x, z) in ring])
+        n = len(base)
+        for ra, rb in zip(rings[:-1], rings[1:]):
+            for i in range(n):
+                bm.faces.new((ra[i], ra[(i + 1) % n], rb[(i + 1) % n], rb[i]))
+        bm.faces.new(rings[0])
+        bm.faces.new(list(reversed(rings[-1])))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    thickness_deform(bm)
+    # the taper makes the caps non-planar: triangulate so the Exact Boolean stays clean
+    bmesh.ops.triangulate(bm, faces=bm.faces, quad_method="BEAUTY", ngon_method="BEAUTY")
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new("ME_NORA_Throat_Windows")
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(rim)
+    ob = mesh_object("CUT_NORA_Throat_Windows", me, coll, parent)
+    return hidden_cutter(ob, "Boolean cutter: the 3 throat windows of the OXDOG mould (traced).")
+
+
+def build_hole_cutter(coll, parent, eva):
+    """All 68 holes (8 mm inner field, 10 mm outer ring) in one cutter mesh."""
+    bm = bmesh.new()
+    for (x, z, d) in G.holes():
+        geom = bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=32,
+                                     radius1=d / 2 * MM, radius2=d / 2 * MM, depth=(T + 20) * MM)
+        # half-segment twist keeps cylinder seams off the face triangulation
+        m = (Matrix.Translation((x * MM, 0, z * MM)) @ Matrix.Rotation(math.radians(90), 4, "X")
+             @ Matrix.Rotation(math.radians(5.625), 4, "Z"))
         bmesh.ops.transform(bm, matrix=m, verts=geom["verts"])
     me = bpy.data.meshes.new("ME_NORA_Hole_Cutter")
     bm.to_mesh(me)
     bm.free()
     me.materials.append(eva)
     ob = mesh_object("CUT_NORA_Holes", me, coll, parent)
-    ob.display_type = "WIRE"
-    ob.hide_render = True
-    ob.visible_camera = False
-    ob.visible_shadow = False
-    ob["nora_note"] = "Boolean cutter for the 66 x 11 mm holes. Move/scale holes here."
-    return ob
+    return hidden_cutter(ob, "Boolean cutter: 68 holes traced from the OXDOG mould (see production/hole_centres.csv).")
+
+
+def build_rib_cutter(coll, parent, rim):
+    """OXDOG 'Power Ribs': grooves across the upper side edges of the frame."""
+    rb = G.RIBS
+    bm = bmesh.new()
+    for (x, z, nx, nz) in G.rib_stations():
+        n = Vector((nx, 0.0, nz)).normalized()
+        t = Vector((nz, 0.0, -nx)).normalized()
+        y = Vector((0.0, 1.0, 0.0))
+        c = Vector((x * MM, 0.0, z * MM)) + n * ((3.0 - rb["depth"]) / 2 * MM)
+        geom = bmesh.ops.create_cube(bm, size=1.0)
+        mtx = Matrix((
+            (t.x * rb["width"] * MM, y.x * 2 * rb["half_span"] * MM, n.x * (3.0 + rb["depth"]) * MM, c.x),
+            (t.y * rb["width"] * MM, y.y * 2 * rb["half_span"] * MM, n.y * (3.0 + rb["depth"]) * MM, c.y),
+            (t.z * rb["width"] * MM, y.z * 2 * rb["half_span"] * MM, n.z * (3.0 + rb["depth"]) * MM, c.z),
+            (0, 0, 0, 1)))
+        bmesh.ops.transform(bm, matrix=mtx, verts=geom["verts"])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new("ME_NORA_Power_Ribs")
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(rim)
+    ob = mesh_object("CUT_NORA_Power_Ribs", me, coll, parent)
+    return hidden_cutter(ob, "Boolean cutter: 2 x 10 Power Rib grooves on the upper frame edge.")
 
 
 def rounded_rect(hx, hy, r, steps=6):
@@ -444,42 +520,25 @@ def loft(name, rings, coll, parent, mat, cap_bottom=True, cap_top=True, smooth=T
     return mesh_object(name, me, coll, parent)
 
 
-def outline_half_width(z):
-    best = None
-    for (x, zz) in G.head_outline():
-        if x > 0 and (best is None or abs(zz - z) < abs(best[1] - z)):
-            best = (x, zz)
-    return best[0]
+def ring_rect(hx, hy):
+    return rounded_rect(hx, hy, min(hx, hy) * 0.62, steps=6)
 
 
 def build_handle(coll, parent, grip_mat, rim_mat):
-    hx, hy = G.HANDLE_HALF_X + 1.3, G.HANDLE_HALF_Y + 1.3      # + overgrip thickness
-    # grip: slight flare toward the butt
-    rings = []
-    for z in (G.GRIP[0], G.GRIP[0] + 6, G.GRIP[0] + 16, 60, 100, G.GRIP[1]):
-        flare = 1.0 + 0.07 * max(0.0, 1.0 - (z - G.GRIP[0]) / 18.0)
-        rings.append((z, rounded_rect(hx * flare, hy * flare, 7.0)))
-    grip = loft("NORA_Gemini_Grip", rings, coll, parent, grip_mat)
-    # collar: wraps the frame where it enters the handle
-    rings = []
-    zc0, zc1 = G.COLLAR
-    for k in range(6):
-        z = zc0 + (zc1 - zc0) * k / 5
-        w = max(outline_half_width(z), hx) + 1.6
-        rings.append((z, rounded_rect(w, G.HANDLE_HALF_Y + 1.8, 6.5)))
-    collar = loft("NORA_Gemini_Collar", rings, coll, parent, rim_mat)
+    """Handle envelope traced from the OXDOG front + side views:
+    oval grip (~35 x 27 mm incl. overgrip), flared butt, collar band."""
+    grip = loft("NORA_Gemini_Grip", [(z, ring_rect(hx, hy)) for z, hx, hy in G.GRIP_RINGS],
+                coll, parent, grip_mat)
+    collar = loft("NORA_Gemini_Collar", [(z, ring_rect(hx, hy)) for z, hx, hy in G.COLLAR_RINGS],
+                  coll, parent, rim_mat)
     bev = collar.modifiers.new("Bevel", "BEVEL")
-    bev.width = 0.0012
+    bev.width = 0.0010
     bev.segments = 3
     bev.limit_method = "ANGLE"
-    # butt cap
-    z0, z1 = G.BUTT_CAP
-    rings = []
-    for z, s in ((z0, 0.96), (z0 + 2, 1.0), (z1 - 2, 1.0), (z1, 0.97)):
-        rings.append((z, rounded_rect((hx + 2.2) * s, (hy + 2.2) * s, 8.0)))
-    cap = loft("NORA_Gemini_ButtCap", rings, coll, parent, rim_mat)
+    cap = loft("NORA_Gemini_ButtCap", [(z, ring_rect(hx, hy)) for z, hx, hy in G.BUTT_RINGS],
+               coll, parent, rim_mat)
     bev = cap.modifiers.new("Bevel", "BEVEL")
-    bev.width = 0.0015
+    bev.width = 0.0012
     bev.segments = 3
     bev.limit_method = "ANGLE"
     return grip, collar, cap
@@ -641,15 +700,19 @@ def main():
     root["model"] = "NORA GEMINI"
     root["face_I"] = "RED - 3K carbon - sand grit + 3D hexagon"
     root["face_II"] = "BLUE - 16K aluminized - fine sand"
-    root["dimensions_mm"] = "455 x 260 x 38"
+    root["dimensions_mm"] = "453 x 249 x 38 (OXDOG Ultimate Pro Light mould)"
 
     body = build_body(rc, root, [m_face_I, m_face_II, m_rim])
-    cutter = build_hole_cutter(rc, root, m_eva)
-    boo = body.modifiers.new("Holes", "BOOLEAN")
-    boo.operation = "DIFFERENCE"
-    boo.solver = "EXACT"
-    boo.object = cutter
-    boo.material_mode = "TRANSFER"
+    for mod_name, cut in (("ThroatWindows", build_window_cutter(rc, root, m_rim)),
+                          ("Holes", build_hole_cutter(rc, root, m_eva)),
+                          ("PowerRibs", build_rib_cutter(rc, root, m_rim))):
+        boo = body.modifiers.new(mod_name, "BOOLEAN")
+        boo.operation = "DIFFERENCE"
+        boo.solver = "EXACT"
+        boo.object = cut
+        boo.material_mode = "TRANSFER"
+    weld = body.modifiers.new("Weld_Slivers", "WELD")     # closes sub-0.01 mm Boolean slivers
+    weld.merge_threshold = 0.00001
     ws = body.modifiers.new("WeightedNormals", "WEIGHTED_NORMAL")
     ws.keep_sharp = True
     build_handle(rc, root, m_grip, m_rim)
@@ -664,12 +727,12 @@ def main():
     area_light("LGT_Rim_Blue", lc, (0.85, 0.55, 0.65), tgt, (0.25, 1.4), 45, (0.2, 0.42, 1.0))
     area_light("LGT_Backdrop_Glow", lc, (0.0, 0.2, 0.02), (0, 1.4, 0.9), (1.8, 0.4), 6, spread=70)
 
-    zc = FLOAT_Z + 0.2275
+    zc = FLOAT_Z + G.LENGTH / 2 * MM
     cam_face = camera("CAM_Face", cc, (0.0, -1.55, zc + 0.01), (0, 0, zc), 85)
     camera("CAM_ThreeQuarter", cc, (-0.72, -1.12, zc + 0.20), (0, 0, zc - 0.005), 85)
-    camera("CAM_Detail_Face", cc, (0.035, -0.42, FLOAT_Z + 0.31), (0.012, 0, FLOAT_Z + 0.282), 100)
-    camera("CAM_Detail_Throat", cc, (0.0, -0.40, FLOAT_Z + 0.24), (0.0, 0, FLOAT_Z + 0.232), 100)
-    camera("CAM_Edge_Macro", cc, (-0.52, -0.30, FLOAT_Z + 0.53), (-0.095, 0, FLOAT_Z + 0.395), 85)
+    camera("CAM_Detail_Face", cc, (0.035, -0.42, FLOAT_Z + 0.272), (0.012, 0, FLOAT_Z + 0.247), 100)
+    camera("CAM_Detail_Throat", cc, (0.0, -0.40, FLOAT_Z + 0.19), (0.0, 0, FLOAT_Z + 0.183), 100)
+    camera("CAM_Edge_Macro", cc, (-0.55, -0.20, FLOAT_Z + 0.50), (-0.10, 0, FLOAT_Z + 0.405), 85)
     scene.camera = cam_face
 
     setup_world(scene)
@@ -717,7 +780,7 @@ def main():
     setup_render(hero, (2400, 1500))
     hero.frame_start = hero.frame_end = hero.frame_current = 1
     # the racket collection is excluded from the hero scene (only instances)
-    return dict(body=body.name, holes=len(G.hole_centres()))
+    return dict(body=body.name, holes=len(G.holes()), ribs=len(G.rib_stations()))
 
 
 if __name__ == "__main__":
