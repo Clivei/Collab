@@ -149,6 +149,7 @@ def build_body():
     bpy.data.meshes.remove(cme)
     bpy.data.meshes.remove(me)
     me2.name = "Gemini_Body"
+    me2.materials.clear()  # drop the empty slot inherited from the curve before indexing
     # rim colour bands
     bm = bmesh.new()
     bm.from_mesh(me2)

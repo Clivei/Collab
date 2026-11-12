@@ -96,7 +96,10 @@ def make_art():
     lines = (1 - sm(0.22, 0.42, ld)) * sm(2.6, 3.0, near)
     P = np.c_[X.ravel(), Z.ravel()]
     edge = np.concatenate([seg_dist(P[i:i + 400000], OUTLINE[::2]) for i in range(0, len(P), 400000)]).reshape(H, W)
-    pin = sm(7.3, 7.5, edge) * (1 - sm(8.0, 8.2, edge))
+    pin = sm(12.3, 12.5, edge) * (1 - sm(13.0, 13.2, edge))
+    border = 1 - sm(12.6, 12.8, edge)  # shiny frame: fibre under gloss, no sand
+    hue = np.mod((X * 0.9 + Z * 0.5) / 55.0, 1.0)[..., None] * 6.0  # laser foil base tint
+    laser = 0.55 + 0.45 * np.clip(np.abs(np.mod(hue + [0, 4, 2], 6.0) - 3.0) - 1.0, 0, 1)
     shared = np.maximum.reduce([star, lines, pin])
 
     # weaves and relief
@@ -127,46 +130,47 @@ def make_art():
             shared, logo(0, 233, 84, sx), text("GEMINI", 0, 219.3, 4.6, 0.8, sx),
             text("I  3K" if face == 1 else "II  16K", 0, 212.2, 2.1, 0.42, sx)])
         bw, bh = (13.0, 11.0) if face == 1 else (17.0, 11.0)
-        qx, qz = np.abs(X) - bw / 2 + 2, np.abs(Z - 434) - bh / 2 + 2
+        qx, qz = np.abs(X) - bw / 2 + 2, np.abs(Z - 433) - bh / 2 + 2
         rr = np.hypot(np.maximum(qx, 0), np.maximum(qz, 0)) + np.minimum(np.maximum(qx, qz), 0) - 2
         ink = np.maximum(ink, 1 - sm(0.22, 0.42, np.abs(rr)))
         for bxm in ((0,) if face == 1 else (-2.6, 2.6)):
-            bar = np.maximum(np.abs(X - bxm) - 0.75, np.abs(Z - 434) - 3.0)
-            ser = np.maximum(np.abs(X - bxm) - 1.9, np.abs(np.abs(Z - 434) - 3.0) - 0.45)
+            bar = np.maximum(np.abs(X - bxm) - 0.75, np.abs(Z - 433) - 3.0)
+            ser = np.maximum(np.abs(X - bxm) - 1.9, np.abs(np.abs(Z - 433) - 3.0) - 0.45)
             ink = np.maximum(ink, 1 - sm(-0.1, 0.1, np.minimum(bar, ser)))
+        a = ink
         ink = ink[..., None]
+        bd = border[..., None]
         if face == 1:
-            p = paint1[..., None]
-            shade = (0.8 + 0.2 * hexh)[..., None]
-            col = np.where(p, np.array(RED, np.float32) * shade, (w3 * (0.85 + 0.15 * hexh))[..., None] * [1, 1, 1.04])
-            inkc = np.array((0.96, 0.96, 0.96), np.float32)
-            rough = np.where(paint1, 0.58, 0.3)
+            sandy = paint1 * (1 - border)
+            carbon = (w3 * (0.85 + 0.15 * hexh * sandy))[..., None] * [1, 1, 1.04]
+            col = np.where(paint1[..., None], np.array(RED, np.float32) * (0.72 + 0.2 * hexh)[..., None], carbon)
+            col = col * (1 - bd) + (w3[..., None] * [1, 1, 1.04]) * bd
+            rough = np.where(paint1, 0.62, 0.46) * (1 - border) + 0.07 * border
             metal = np.zeros((H, W), np.float32)
-            height = 0.75 * hexh + 0.04 * np.where(warp3, px3, pz3)
+            height = 0.75 * hexh * sandy + 0.04 * np.where(warp3, px3, pz3)
         else:
-            p = ~paint1[..., None]
-            tint = np.array(BLUE, np.float32) * 1.75
-            col = np.where(p, np.clip(w16[..., None] * tint, 0, 1), w16[..., None] * [0.93, 0.95, 1.0])
-            inkc = np.where(p, np.array((0.97, 0.97, 0.97), np.float32), np.array(NAVY, np.float32))
-            rough = np.where(~paint1, 0.2, 0.3)
+            sandy = (~paint1) * (1 - border)
+            raw = w16[..., None] * [0.93, 0.95, 1.0]
+            col = np.where(~paint1[..., None], np.clip(w16[..., None] * np.array(BLUE, np.float32) * 1.3, 0, 1), raw)
+            col = col * (1 - bd) + raw * bd
+            rough = np.where(~paint1, 0.5, 0.42) * (1 - border) + 0.2 * border
             metal = np.ones((H, W), np.float32)
             height = 0.5 * np.where(warp16, px16, pz16)
-        col = col * (1 - ink) + inkc * ink
-        a = ink[..., 0]
-        rough = rough * (1 - a) + 0.42 * a
-        metal = metal * (1 - a)
+        col = col * (1 - ink) + laser * ink
+        rough = rough * (1 - a) + 0.3 * a
+        metal = metal * (1 - a) + a
         height = np.clip(height + 0.12 * a, 0, 1)
-        out[face] = (col.astype(np.float32), np.dstack([height, rough, metal]).astype(np.float32))
+        grit = sandy * (1 - a)
+        out[face] = (np.dstack([col, a]).astype(np.float32), np.dstack([height, rough, metal, grit]).astype(np.float32))
     return out, (W, H)
 
 
 def to_image(name, arr, wh, colorspace):
     W, H = wh
-    img = bpy.data.images.new(name, W, H, alpha=False)
+    img = bpy.data.images.new(name, W, H, alpha=True)
     img.colorspace_settings.name = colorspace
-    rgba = np.ones((H, W, 4), np.float32)
-    rgba[..., :3] = arr
-    img.pixels.foreach_set(rgba.ravel())
+    img.alpha_mode = "CHANNEL_PACKED"
+    img.pixels.foreach_set(np.ascontiguousarray(arr, np.float32).ravel())
     img.pack()
     return img
 
@@ -194,7 +198,23 @@ def face_mat(name, col_img, dat_img, grit, bump_mm, coat):
     tco = nt.nodes.new("ShaderNodeTexCoord")
     nt.links.new(tco.outputs["Object"], vor.inputs["Vector"])
     b2 = nt.nodes.new("ShaderNodeBump")
-    b2.inputs["Strength"].default_value = grit
+    gm = nt.nodes.new("ShaderNodeMath")  # sand only where the grit mask (data alpha) says so
+    gm.operation = "MULTIPLY"
+    gm.inputs[1].default_value = grit
+    nt.links.new(td.outputs["Alpha"], gm.inputs[0])
+    nt.links.new(gm.outputs[0], b2.inputs["Strength"])
+    tf = nt.nodes.new("ShaderNodeMath")  # laser foil: thin-film iridescence where colour alpha = 1
+    tf.operation = "MULTIPLY"
+    tf.inputs[1].default_value = 520.0
+    nt.links.new(tc.outputs["Alpha"], tf.inputs[0])
+    nt.links.new(tf.outputs[0], b.inputs["Thin Film Thickness"])
+    b.inputs["Thin Film IOR"].default_value = 1.45
+    em = nt.nodes.new("ShaderNodeMath")  # foil keeps a little glow so it reads in dark reflections
+    em.operation = "MULTIPLY"
+    em.inputs[1].default_value = 0.4
+    nt.links.new(tc.outputs["Alpha"], em.inputs[0])
+    nt.links.new(tc.outputs["Color"], b.inputs["Emission Color"])
+    nt.links.new(em.outputs[0], b.inputs["Emission Strength"])
     b2.inputs["Distance"].default_value = 0.12 * MM
     b2.invert = True
     nt.links.new(vor.outputs["Distance"], b2.inputs["Height"])
@@ -213,7 +233,7 @@ def build_all():
         face_mat("MAT_Face_I_3K_Red_Sand3D", to_image("FaceI_color", art[1][0], wh, "sRGB"),
                  to_image("FaceI_height_rough_metal", art[1][1], wh, "Non-Color"), 0.9, 0.35, 0.0),
         face_mat("MAT_Face_II_16K_Alu_Blue_FineSand", to_image("FaceII_color", art[2][0], wh, "sRGB"),
-                 to_image("FaceII_height_rough_metal", art[2][1], wh, "Non-Color"), 0.3, 0.06, 0.6),
+                 to_image("FaceII_height_rough_metal", art[2][1], wh, "Non-Color"), 0.35, 0.06, 0.0),
         mat("MAT_EVA_Core", (0.86, 0.86, 0.84), 0.85),
         mat("MAT_Rim_Red", RED, 0.32, 0, 0.5), mat("MAT_Rim_Blue", BLUE, 0.32, 0, 0.5),
         mat("MAT_Rim_Pinstripe", (0.95, 0.95, 0.95), 0.35), mat("MAT_Rim_Carbon", (0.045, 0.045, 0.05), 0.28, 0, 0.6),
