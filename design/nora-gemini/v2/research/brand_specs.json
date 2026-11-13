@@ -1,0 +1,385 @@
+{
+ "rackets": [
+  {
+   "brand": "Bullpadel",
+   "model": "Vertex 05 2026",
+   "kind": "vertex",
+   "tag": [
+    240,
+    180,
+    60
+   ],
+   "accent": [
+    30,
+    30,
+    34
+   ],
+   "rows": [
+    [
+     "Face",
+     "Xtend Carbon 12K, MultiEVA core"
+    ],
+    [
+     "Finish",
+     "3D rough / Top Spin (sandpaper-type)"
+    ],
+    [
+     "Look",
+     "Light face, black details, one quiet centre logo (colourways vary: white, black/red)"
+    ]
+   ],
+   "steal": "Let one calm centre mark carry the logo, so a loud face does not fight it."
+  },
+  {
+   "brand": "Bullpadel",
+   "model": "Hack 04 2026",
+   "kind": "hack",
+   "tag": [
+    240,
+    180,
+    60
+   ],
+   "accent": [
+    196,
+    202,
+    210
+   ],
+   "rows": [
+    [
+     "Face",
+     "TriCarbon 18K, 38 mm diamond"
+    ],
+    [
+     "Finish",
+     "3D Grain rough, matte look"
+    ],
+    [
+     "Look",
+     "Exposed carbon, sharp lines, embossed signature; black/silver (also orange editions)"
+    ]
+   ],
+   "steal": "Leave raw carbon visible and emboss the name instead of printing it big."
+  },
+  {
+   "brand": "NOX",
+   "model": "AT10 Genius 18K 2026",
+   "kind": "at10",
+   "tag": [
+    230,
+    200,
+    90
+   ],
+   "accent": [
+    214,
+    172,
+    82
+   ],
+   "rows": [
+    [
+     "Face",
+     "Aluminised 18K carbon, teardrop"
+    ],
+    [
+     "Finish",
+     "Dual Spin: 3D pattern + silica sand over the WHOLE face"
+    ],
+    [
+     "Look",
+     "Black, white and gold; photochromic 'Chromic Paint' core"
+    ]
+   ],
+   "steal": "Closest precedent to the 16K aluminised side: sand across an aluminised weave, gold-style border."
+  },
+  {
+   "brand": "NOX",
+   "model": "ML10 Ventus Control 3K 2026",
+   "kind": "ml10",
+   "tag": [
+    230,
+    200,
+    90
+   ],
+   "accent": [
+    214,
+    32,
+    52
+   ],
+   "rows": [
+    [
+     "Face",
+     "3K woven carbon, round, 38 mm"
+    ],
+    [
+     "Finish",
+     "Dual Spin texture"
+    ],
+    [
+     "Look",
+     "Grey/black face with red diamond pattern, red throat bridge and strap"
+    ]
+   ],
+   "steal": "Repeat one accent colour (diamond lattice, throat, strap) so the frame reads as one piece."
+  },
+  {
+   "brand": "StarVie",
+   "model": "Black Titan 2026",
+   "kind": "titan",
+   "tag": [
+    90,
+    170,
+    255
+   ],
+   "accent": [
+    120,
+    130,
+    150
+   ],
+   "rows": [
+    [
+     "Face",
+     "24K carbon, H-EVA Power core"
+    ],
+    [
+     "Finish",
+     "Spin Boost rough surface"
+    ],
+    [
+     "Look",
+     "Graphics unconfirmed from sources; StarVie is known for a glossy frame around a textured face"
+    ]
+   ],
+   "steal": "Gloss border + textured inner face: the user's StarVie reference, used in Gemini's shiny edge."
+  },
+  {
+   "brand": "Siux",
+   "model": "Fenix Pro 2026",
+   "kind": "fenix",
+   "tag": [
+    170,
+    110,
+    240
+   ],
+   "accent": [
+    150,
+    70,
+    230
+   ],
+   "rows": [
+    [
+     "Face",
+     "12K or 24K carbon (sources disagree), high-balance diamond"
+    ],
+    [
+     "Finish",
+     "3D texture; satin or gloss depending on source"
+    ],
+    [
+     "Look",
+     "Black and Glow Purple"
+    ]
+   ],
+   "steal": "A single glowing colour band over a dark 3D-textured face gives a clear day-and-night split."
+  },
+  {
+   "brand": "Oxdog",
+   "model": "Ultimate Pro Light 2026",
+   "kind": "oxdog",
+   "tag": [
+    230,
+    70,
+    80
+   ],
+   "accent": [
+    214,
+    32,
+    52
+   ],
+   "rows": [
+    [
+     "Face",
+     "HES Carbon (8K per one retailer), 345-360 g"
+    ],
+    [
+     "Finish",
+     "Sand with 3D texture, matte contrast"
+    ],
+    [
+     "Look",
+     "Black and red; modern lines, contrasting touches"
+    ]
+   ],
+   "steal": "The production mould itself: sand + 3D hexagon on a dark carbon base is exactly Face I's recipe."
+  },
+  {
+   "brand": "Babolat",
+   "model": "Technical Viper 3.0 2026",
+   "kind": "viper",
+   "tag": [
+    240,
+    90,
+    70
+   ],
+   "accent": [
+    214,
+    32,
+    52
+   ],
+   "rows": [
+    [
+     "Face",
+     "3K woven carbon (softer than the old 12K), diamond"
+    ],
+    [
+     "Finish",
+     "Rough, for spin"
+    ],
+    [
+     "Look",
+     "Red face with black details"
+    ]
+   ],
+   "steal": "A saturated red 3K weave with a clean black diagonal shows red can carry a power racket."
+  },
+  {
+   "brand": "Adidas",
+   "model": "Metalbone 2026 (Ale Galan)",
+   "kind": "metalbone",
+   "tag": [
+    120,
+    220,
+    170
+   ],
+   "accent": [
+    235,
+    235,
+    240
+   ],
+   "rows": [
+    [
+     "Face",
+     "Aluminised carbon 16K (Carbon 6K on the base model)"
+    ],
+    [
+     "Finish",
+     "Spin Blade decal"
+    ],
+    [
+     "Look",
+     "Decal-driven graphic; colourway unconfirmed"
+    ]
+   ],
+   "steal": "One bold diagonal decal over a visible metallic weave suits Face II."
+  },
+  {
+   "brand": "Head",
+   "model": "Coello Pro 2026",
+   "kind": "coello",
+   "tag": [
+    255,
+    140,
+    80
+   ],
+   "accent": [
+    190,
+    28,
+    44
+   ],
+   "rows": [
+    [
+     "Face",
+     "Carbon hybrid"
+    ],
+    [
+     "Finish",
+     "Extreme Spin 3D rough decal"
+    ],
+    [
+     "Look",
+     "Red and black per one retailer (others list black); crown logo + signature"
+    ]
+   ],
+   "steal": "One clean red/black split plus a small crest keeps a bold racket premium."
+  }
+ ],
+ "matrix": [
+  [
+   "Vertex 05",
+   "12K carbon",
+   "3D rough",
+   "light / black"
+  ],
+  [
+   "Hack 04",
+   "18K TriCarbon",
+   "3D Grain, matte",
+   "black / silver"
+  ],
+  [
+   "AT10 Genius",
+   "18K aluminised",
+   "Dual Spin sand, full face",
+   "black / white / gold"
+  ],
+  [
+   "ML10 Ventus",
+   "3K woven",
+   "Dual Spin",
+   "grey + red accents"
+  ],
+  [
+   "Black Titan",
+   "24K carbon",
+   "Spin Boost rough",
+   "unconfirmed"
+  ],
+  [
+   "Fenix Pro",
+   "12K or 24K",
+   "3D, satin/gloss",
+   "black / purple"
+  ],
+  [
+   "Ultimate Pro Light",
+   "HES 8K",
+   "sand + 3D, matte",
+   "black / red"
+  ],
+  [
+   "Viper 3.0",
+   "3K woven",
+   "rough",
+   "red / black"
+  ],
+  [
+   "Metalbone",
+   "16K aluminised",
+   "Spin Blade",
+   "unconfirmed"
+  ],
+  [
+   "Coello Pro",
+   "carbon hybrid",
+   "Extreme Spin",
+   "red / black"
+  ],
+  [
+   "NORA Gemini I",
+   "3K twill",
+   "sand + 3D hex, matte, laser",
+   "red / black"
+  ],
+  [
+   "NORA Gemini II",
+   "16K aluminised",
+   "fine sand, matte, laser",
+   "blue / silver"
+  ]
+ ],
+ "takeaways": [
+  "Almost every top 2026 racket pairs a 3D / rough face with a matte look. Only StarVie is known for a gloss frame around a textured face, so Gemini's shiny border plus sandy-matte interior stays distinctive.",
+  "Aluminised faces (NOX 18K, Adidas 16K) use sand over the whole face; Gemini II can do the same on its blue half.",
+  "Premium looks use ONE accent and quiet branding (Vertex, Hack, Coello). Gemini keeps the laser to strokes only.",
+  "3K red with sand/3D (Oxdog, Viper) is a proven performance look, which backs Face I.",
+  "Photos could not be downloaded here; Quad has only one retailer listing (White Tiger, '3K Double Carbon'), no design info."
+ ]
+}
