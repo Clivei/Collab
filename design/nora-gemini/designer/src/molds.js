@@ -122,8 +122,8 @@ registerMold({
       [130, 410, 66, 456, 0, 461]        // narrow diamond apex
     ] },
     windows: [
-      { points: slotPoly(0, 154, 232, 18, 42, 44), mirror: false },
-      { points: ellipsePoly(29, 192, 8, 26, -10), mirror: true }
+      { points: slotPoly(0, 154, 232, 16, 26, 44), mirror: false },
+      { points: ellipsePoly(26, 205, 6, 16, 0), mirror: true }
     ],
     thickness: [[128, 24], [150, 26], [190, 32], [230, 37], [260, 38], [470, 38]]
   },
@@ -169,7 +169,7 @@ registerMold({
     ] },
     windows: [
       { points: slotPoly(0, 158, 198, 20, 26, 40), mirror: false },
-      { points: slotPoly(28, 160, 192, 14, 18, 36), mirror: true }
+      { points: slotPoly(20, 168, 197, 5, 6, 36), mirror: true }
     ],
     thickness: [[128, 24], [160, 28], [200, 34], [240, 38], [450, 38]]
   },
@@ -215,7 +215,7 @@ registerMold({
     ] },
     windows: [
       { points: ellipsePoly(0, 186, 15, 27, 0), mirror: false },
-      { points: ellipsePoly(28, 176, 7, 20, -14), mirror: true }
+      { points: ellipsePoly(26, 200, 6, 16, 0), mirror: true }
     ],
     thickness: [[128, 24], [150, 26], [190, 33], [230, 37.5], [260, 38], [460, 38]]
   },
