@@ -22,7 +22,7 @@
  *   core: { kind:'solid'|'layered', color, layers:[{color,from,to}] }  // from/to = 0..1 across thickness (B -> A)
  *   frame: { color, weave, finish:'gloss'|'matte', stripe:{color, from, to} }  // from/to = 0..1 around the tube
  *   handle: { rings:[[y,hx,hy]...], collar:[[y,hx,hy]...], butt:[[y,hx,hy]...], grip:{color}, strap:{color}, cap:{color,text} }
- *   faces: { A:FaceCfg, B:FaceCfg }  FaceCfg = { weave, tint, relief, reliefStrength, border, borderMm, gloss,
+ *   faces: { A:FaceCfg, B:FaceCfg }  FaceCfg = { surface, paint, sheen, ink, weave, tint, relief, reliefStrength, border, borderMm, gloss,
  *                                              weaveScale, decals:[Decal...] }
  *   performance: { sweetSpot:{x,y,rx,ry}, flexNote }
  *   hotspots: [ { id, label, text, pos:[x,y,z], face:'A'|'B'|'edge' } ]
@@ -30,7 +30,9 @@
  * }
  *
  * weave ids  : 3k-twill | 12k-flat | 18k-flat | 16k-alu | colored | glass
- * relief ids : hex | star | spin | sand | smooth
+ * surface ids: matte | shiny | sand | shiny-carbon | 3d-matte | 3d-shiny-carbon | 3d-hex   (factory sheet, see textures.js SURFACES)
+ * ink ids    : paint | laser | gold | silver                                               (factory sheet, see textures.js INKS)
+ * relief ids : plate | hex | star | spin | sand | smooth
  * decal types: text | logo(nora) | poly | constellation | ring | stripe   (see textures.js drawDecals)
  * ===================================================================================== */
 const MOLD_REGISTRY = {};
@@ -83,14 +85,14 @@ registerMold({
   handle: { rings: STD_GRIP, collar: STD_COLLAR, butt: STD_BUTT, grip: { color: '#16161a' }, strap: { color: '#d11f3f' },
     cap: { color: '#101013', text: 'N' } },
   faces: {
-    A: { weave: 'colored', tint: '#d11f3f', relief: 'hex', reliefStrength: 1.0, border: true, borderMm: 13, gloss: 0.35, weaveScale: 1.8,
+    A: { weave: 'colored', tint: '#d11f3f', ink: 'laser', relief: 'hex', reliefStrength: 1.0, border: true, borderMm: 13, gloss: 0.35, weaveScale: 1.8,
       decals: [
         { type: 'logo', group: 'logo', x: 0, y: 296, width: 168, color: '#f4f4f6', alpha: 0.96 },
         { type: 'text', group: 'type', text: 'I', x: 0, y: 255, size: 14, color: '#f4f4f6', alpha: 0.92 },
         { type: 'text', group: 'type', text: 'GEMINI  ·  ATTACK', x: 0, y: 170, size: 5.2, spacing: 3, color: '#f4f4f6', alpha: 0.85 },
         { type: 'poly', group: 'stripe', points: [[-98, 372], [-60, 432], [-44, 424], [-82, 364]], color: '#0b0b0e', alpha: 0.85 }
       ] },
-    B: { weave: '16k-alu', tint: '#1b6fb0', relief: 'sand', reliefStrength: 0.7, border: true, borderMm: 13, gloss: 0.5, weaveScale: 1.8,
+    B: { weave: '16k-alu', tint: '#1b6fb0', ink: 'silver', relief: 'sand', reliefStrength: 0.7, border: true, borderMm: 13, gloss: 0.5, weaveScale: 1.8,
       decals: [
         { type: 'logo', group: 'logo', x: 0, y: 296, width: 168, color: '#0a2a50', alpha: 0.95 },
         { type: 'text', group: 'type', text: 'II', x: 0, y: 255, size: 14, color: '#0a2a50', alpha: 0.92 },

@@ -269,8 +269,9 @@ class Racket {
     const g = this.geo, mold = this.mold, kf = g.kf, bb = g.bb;
     const faceW = this.faceRes, faceH = Math.round(faceW * bb.h / bb.w);
     const makeSet = (w, h) => ({ color: TEXGEN.mk(w, h), bump: TEXGEN.mk(w, h), rm: TEXGEN.mk(w, h) });
+    const faceSet = (w, h) => ({ ...makeSet(w, h), fx: TEXGEN.mk(w, h), tmp: TEXGEN.mk(w, h) });
     // ---- textures & materials
-    this.faceCv = { A: makeSet(faceW, faceH), B: makeSet(faceW, faceH) };
+    this.faceCv = { A: faceSet(faceW, faceH), B: faceSet(faceW, faceH) };
     this.skinMat = {};
     for (const s of ['A', 'B']) {
       const cv = this.faceCv[s];
@@ -279,6 +280,7 @@ class Racket {
         roughness: 1, metalness: 1, clearcoat: 0, clearcoatRoughness: 0.12, sheen: 0.12, sheenRoughness: 0.6, sheenColor: new THREE.Color(0x606878), envMapIntensity: 0.95
       });
       m.polygonOffset = true; m.polygonOffsetFactor = -1; m.polygonOffsetUnits = -2;
+      m.iridescence = 1; m.iridescenceIOR = 1.7; m.iridescenceThicknessRange = [180, 720]; m.iridescenceMap = this.tex(cv.fx);
       this.skinMat[s] = m;
     }
     this.frameCv = makeSet(512, 512);
@@ -413,11 +415,13 @@ class Racket {
   setFace(side, cfg, ui) {
     const cv = this.faceCv[side], res = TEXGEN.composeFace(cv, cfg, side, this.geo, ui || { groups: { logo: true, type: true, stripe: true } });
     const m = this.skinMat[side];
-    for (const t of [m.map, m.bumpMap, m.roughnessMap, m.metalnessMap]) t.needsUpdate = true;
+    for (const t of [m.map, m.bumpMap, m.roughnessMap, m.metalnessMap, m.iridescenceMap]) t.needsUpdate = true;
     const str = cfg.reliefStrength == null ? 1 : cfg.reliefStrength;
     m.bumpScale = (cfg.relief === 'smooth' ? 0.9 : cfg.relief === 'hex' ? 2.6 : cfg.relief === 'spin' ? 2.2 : 2.0) * (0.4 + 0.9 * str);
     m.clearcoat = cfg.relief === 'smooth' ? 0.4 + 0.6 * (cfg.gloss == null ? 0.5 : cfg.gloss) : 0.15 * (cfg.gloss == null ? 0.4 : cfg.gloss);
     m.clearcoatRoughness = 0.08 + (cfg.relief === 'smooth' ? 0 : 0.35);
+    if (cfg.sheen === 'shiny') { m.clearcoat = 0.95; m.clearcoatRoughness = 0.05; } else if (cfg.sheen === 'matte') m.clearcoat = 0;
+    if (cfg.relief === 'plate') m.bumpScale = 2.4 * (0.4 + 0.9 * str);
     m.userData.cfg = cfg; m.needsUpdate = true;
   }
   setFrame(frame) {

@@ -89,7 +89,7 @@
     scene: { env: 'studio', exposure: 1.0, shadows: true, hotspots: true }
   };
   const clone = o => JSON.parse(JSON.stringify(o));
-  const defUI = () => ({ groups: { logo: true, type: true, stripe: true }, logoColor: null, customText: '' });
+  const defUI = () => ({ groups: { logo: true, type: true, stripe: true }, logoColor: null, customText: '', ink: null });
 
   /* ------------------------------------------------------------------ camera helpers */
   const camState = () => { const o = camera.position.clone().sub(controls.target), d = o.length(); return { az: Math.atan2(o.x, o.z), pol: Math.acos(o.y / d), d, tx: controls.target.x, ty: controls.target.y, tz: controls.target.z }; };
@@ -300,7 +300,7 @@
 
   /* ------------------------------------------------------------------ sidebar UI */
   const SWATCHES = ['#d11f3f', '#1b6fb0', '#f4b400', '#1fa56b', '#ff5a1f', '#8a4dff', '#2ee6a6', '#e8e8ea'];
-  const RELIEFS = [['hex', 'Hexagon 3D'], ['star', 'Star grit'], ['spin', 'Spin blades'], ['sand', 'Micro-sand'], ['smooth', 'Glossy smooth']];
+  const RELIEFS = [['plate', '3D tread'], ['hex', 'Hexagon 3D'], ['star', 'Star grit'], ['spin', 'Spin blades'], ['sand', 'Micro-sand'], ['smooth', 'Glossy smooth']];
   const CORES = [['#141416', 'Black'], ['#f2f2f2', 'White'], ['#c8202e', 'Red'], ['#1b4fd8', 'Blue']];
   const timers = {};
   const sched = (key, fn) => { if (timers[key]) return; timers[key] = requestAnimationFrame(() => { timers[key] = 0; fn(); }); };
@@ -373,6 +373,8 @@
     const ui = () => state.ui[state.selFace];
     b.append(tog('Centre brand logo', () => ui().groups.logo, v => editUI('g_logo', v)), tog('Bridge typography', () => ui().groups.type, v => editUI('g_type', v)), tog('Accent stripes / rings', () => ui().groups.stripe, v => editUI('g_stripe', v)));
     const t = el('input', { type: 'text', placeholder: 'Custom wordmark (replaces logo)', maxlength: 14 }); t.value = ui().customText; t.addEventListener('input', () => editUI('customText', t.value.toUpperCase()));
+    b.append(el('label', { class: 'f' }, 'Graphic ink (logo + typography)'),
+      chips(Object.entries(TEXGEN.INKS), () => ui().ink || state.faces[state.selFace].ink || 'paint', v => editUI('ink', v)));
     b.append(el('label', { class: 'f' }, 'Custom wordmark'), t, el('label', { class: 'f' }, 'Logo / ink colour'),
       swatches(['#f4f4f6', '#0a2a50', '#0b0b0e', '#f4b400', '#d11f3f'], () => ui().logoColor, v => editUI('logoColor', v)));
   }
@@ -401,6 +403,11 @@
     const sw = swatches(SWATCHES, () => F().tint, v => editFace('tint', v));
     if (!tintable) sw.style.opacity = 0.35;
     faceBody.append(
+      el('label', { class: 'f' }, 'Factory surface style'),
+      chips(Object.entries(TEXGEN.SURFACES).map(([k, v]) => [k, v.label]), () => F().surface || '', v => {
+        editFace('surface', v, false); const set = TEXGEN.SURFACES[v].set, ks = Object.keys(set);
+        ks.forEach((k, i) => editFace(k, set[k], i === ks.length - 1)); refreshFaceControls();
+      }),
       el('label', { class: 'f' }, 'Carbon weave / laminate'), weaveSel,
       el('label', { class: 'f' }, tintable ? 'Tint (threads / anodised coat)' : 'Tint (needs coloured carbon, glass or aluminised)'), sw,
       el('label', { class: 'f' }, '3D surface relief'),

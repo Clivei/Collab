@@ -98,6 +98,14 @@ const TEXGEN = (() => {
         for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, r = k & 1 ? r2 : r1; ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
         ctx.closePath(); ctx.fill();
       }
+    } else if (kind === 'plate') {                    // 3D tread / diamond-plate emboss
+      const s = 7.5 * ppm;
+      for (let row = -1; row * s < H + s; row++) for (let col = -1; col * s < W + s; col++) {
+        const cx = col * s + (row & 1 ? s / 2 : 0), cy = row * s, rot = ((row + col) & 1 ? 1 : -1) * Math.PI / 4;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.42); g.addColorStop(0, 'rgb(255,255,255)'); g.addColorStop(1, 'rgb(120,120,120)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.42, s * 0.13, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      }
     } else if (kind === 'spin') {
       const P = 64, t = mk(P, P), tc = t.getContext('2d'), id = tc.createImageData(P, P);
       for (let y = 0; y < P; y++) for (let x = 0; x < P; x++) {
@@ -116,6 +124,37 @@ const TEXGEN = (() => {
       ctx.save(); ctx.scale(k, k); ctx.fillStyle = pat; ctx.fillRect(0, 0, W / k + 4, H / k + 4); ctx.restore();
     }
     return c;
+  }
+
+  /* ----------------------------------------------------------------------------------
+   * FACTORY CATALOG - the nine tiles of the factory "Surface Style Options" sheet, split in two axes:
+   *   SURFACES (7) = what the whole face is made of      INKS (3 + paint) = how graphics are applied
+   * ---------------------------------------------------------------------------------- */
+  const SURFACES = {
+    'matte':           { label: 'Matte',                         set: { paint: true,  sheen: 'matte', relief: 'smooth', border: false } },
+    'shiny':           { label: 'Shiny',                         set: { paint: true,  sheen: 'shiny', relief: 'smooth', border: false } },
+    'sand':            { label: 'Sand grit',                     set: { paint: false, sheen: 'shiny', relief: 'sand',   reliefStrength: 1 } },
+    'shiny-carbon':    { label: 'Shiny + carbon visible',        set: { paint: false, sheen: 'shiny', relief: 'smooth', border: false } },
+    '3d-matte':        { label: '3D + matte',                    set: { paint: true,  sheen: 'matte', relief: 'plate',  reliefStrength: 1 } },
+    '3d-shiny-carbon': { label: '3D + shiny + carbon visible',   set: { paint: false, sheen: 'shiny', relief: 'plate',  reliefStrength: 1 } },
+    '3d-hex':          { label: '3D hexagon',                    set: { paint: false, sheen: 'shiny', relief: 'hex',    reliefStrength: 1 } }
+  };
+  const INKS = { paint: 'Paint', laser: 'Laser (holographic)', gold: 'Gold hot stamping', silver: 'Silver hot stamping' };
+  const holoCache = {};
+  function holoTile(ink) {
+    if (holoCache[ink]) return holoCache[ink];
+    const S = 256, c = mk(S, S), x = c.getContext('2d'), r = rng(ink.length * 17 + 3), cell = 16;
+    for (let j = 0; j < S / cell; j++) for (let i = 0; i < S / cell; i++) {
+      const band = ((i + j) * 28) % 360, v = r();
+      let col;
+      if (ink === 'laser') col = `hsl(${(band + v * 90) % 360},92%,${62 + v * 22}%)`;
+      else if (ink === 'gold') col = v > 0.82 ? `hsl(${(band) % 360},80%,72%)` : `hsl(${40 + v * 10},${78 + v * 12}%,${50 + v * 26}%)`;
+      else col = v > 0.82 ? `hsl(${band},70%,80%)` : `hsl(215,${6 + v * 10}%,${70 + v * 24}%)`;
+      x.fillStyle = col; x.fillRect(i * cell, j * cell, cell, cell);
+      const g = x.createLinearGradient(i * cell, j * cell, (i + 1) * cell, (j + 1) * cell); g.addColorStop(0, 'rgba(255,255,255,.45)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,.18)');
+      x.fillStyle = g; x.fillRect(i * cell, j * cell, cell, cell);
+    }
+    return (holoCache[ink] = c);
   }
 
   /* ----------------------------------------------------------------------------------
@@ -174,7 +213,13 @@ const TEXGEN = (() => {
     fillPattern(rc, tile.rm, ppm, tile.tileMM, sc, 0, W, H);
     bc.save(); bc.globalAlpha = 0.5; bc.fillStyle = 'rgb(128,128,128)'; bc.fillRect(0, 0, W, H); bc.restore();   // soften weave bump (kills glint aliasing)
     // gloss slider: lower roughness everywhere (clear-coat feel), keeps B (metal) channel
-    const gl = cfg.gloss == null ? 0.4 : cfg.gloss;
+    const gl = cfg.gloss == null ? 0.4 : cfg.gloss, sh = cfg.sheen || '';
+    const metal = cfg.paint ? 0 : tile.metal;
+    if (cfg.paint) {                              // opaque lacquer: carbon hidden, only a ghost of the weave left
+      cc.save(); cc.globalAlpha = 0.94; cc.fillStyle = cfg.tint || '#d11f3f'; cc.fillRect(0, 0, W, H); cc.restore();
+      bc.save(); bc.globalAlpha = 0.85; bc.fillStyle = 'rgb(128,128,128)'; bc.fillRect(0, 0, W, H); bc.restore();
+      rc.save(); rc.fillStyle = 'rgb(255,110,0)'; rc.fillRect(0, 0, W, H); rc.restore();
+    }
     // 2. matte / sand / hex interior
     const relief = cfg.relief || 'smooth', str = cfg.reliefStrength == null ? 1 : cfg.reliefStrength;
     let reliefOn = relief !== 'smooth' && str > 0.01;
@@ -196,8 +241,8 @@ const TEXGEN = (() => {
       cc.globalAlpha = 0.06 * str; cc.globalCompositeOperation = 'screen'; cc.drawImage(rl, 0, 0); cc.restore();
       // roughness: matte interior
       rc.save(); rc.clip(clip, 'evenodd');
-      const m = Math.round(tile.metal * 255);
-      rc.globalAlpha = 0.82 * Math.min(1, str + 0.15); rc.fillStyle = `rgb(255,${Math.round(255 * (relief === 'sand' ? 0.70 : relief === 'hex' ? 0.64 : 0.58))},${m})`; rc.fillRect(0, 0, W, H);
+      const m = Math.round(metal * 255), rr = sh === 'shiny' ? (relief === 'sand' ? 0.3 : 0.16) : sh === 'matte' ? 0.76 : (relief === 'sand' ? 0.70 : relief === 'hex' ? 0.64 : 0.58);
+      rc.globalAlpha = 0.82 * Math.min(1, str + 0.15); rc.fillStyle = `rgb(255,${Math.round(255 * rr)},${m})`; rc.fillRect(0, 0, W, H);
       rc.restore();
     }
     // shiny border: very low roughness outside the interior clip
@@ -205,10 +250,10 @@ const TEXGEN = (() => {
       rc.save(); const clip = region(); rc.globalCompositeOperation = 'source-over';
       const all = new Path2D(); all.rect(0, 0, W, H); all.addPath(clip);
       rc.clip(all, 'evenodd'); rc.globalAlpha = 0.92;
-      rc.fillStyle = `rgb(255,${Math.round(255 * (0.10 + 0.06 * (1 - gl)))},${Math.round(tile.metal * 255)})`; rc.fillRect(0, 0, W, H); rc.restore();
+      rc.fillStyle = `rgb(255,${Math.round(255 * (0.10 + 0.06 * (1 - gl)))},${Math.round(metal * 255)})`; rc.fillRect(0, 0, W, H); rc.restore();
     }
-    if (!reliefOn && !cfg.border) {            // pure gloss face
-      rc.save(); rc.globalAlpha = 0.9; rc.fillStyle = `rgb(255,${Math.round(255 * (0.08 + 0.10 * (1 - gl)))},${Math.round(tile.metal * 255)})`; rc.fillRect(0, 0, W, H); rc.restore();
+    if (!reliefOn && !cfg.border) {            // flat face: matte lacquer or gloss
+      rc.save(); rc.globalAlpha = 0.9; rc.fillStyle = `rgb(255,${Math.round(255 * (sh === 'matte' ? 0.8 : 0.08 + 0.10 * (1 - gl)))},${Math.round(metal * 255)})`; rc.fillRect(0, 0, W, H); rc.restore();
     }
     // 3. decals
     const off = {}; if (ui && ui.logoColor) { off.logo = ui.logoColor; off.type = ui.logoColor; }
@@ -220,6 +265,20 @@ const TEXGEN = (() => {
       decals.push({ type: 'text', group: 'logo', text: ui.customText, x: 0, y: base && base.y ? base.y : 300, size: Math.min(26, 200 / Math.max(4, ui.customText.length) * 1.2), spacing: 5, color: base ? base.color : '#ffffff', alpha: 0.95 });
     }
     cc.setTransform(1, 0, 0, 1, 0, 0);
+    const ink = (ui && ui.ink) || cfg.ink || 'paint';
+    if (cv.fx) { const fc = cv.fx.getContext('2d'); fc.setTransform(1, 0, 0, 1, 0, 0); fc.fillStyle = '#000'; fc.fillRect(0, 0, W, H); }
+    if (ink !== 'paint' && cv.fx && cv.tmp) {       // foil inks: laser film / gold / silver hot stamping on logo + typography
+      const foil = decals.filter(d => d.group !== 'stripe'); decals = decals.filter(d => d.group === 'stripe');
+      const tc = cv.tmp.getContext('2d'); tc.setTransform(1, 0, 0, 1, 0, 0); tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, W, H);
+      drawDecals(tc, foil.map(d => ({ ...d, alpha: 1, color: '#fff' })), map, ppm, {});
+      tc.globalCompositeOperation = 'source-in';
+      const pat = tc.createPattern(holoTile(ink), 'repeat'), k = Math.max(0.5, ppm / 5);
+      tc.save(); tc.scale(k, k); tc.fillStyle = pat; tc.fillRect(0, 0, W / k + 2, H / k + 2); tc.restore(); cc.drawImage(cv.tmp, 0, 0);
+      tc.fillStyle = 'rgb(255,46,255)'; tc.fillRect(0, 0, W, H); rc.drawImage(cv.tmp, 0, 0);             // smooth + metallic
+      tc.fillStyle = '#fff'; tc.fillRect(0, 0, W, H); cv.fx.getContext('2d').drawImage(cv.tmp, 0, 0);      // iridescence mask
+      tc.fillStyle = 'rgb(150,150,150)'; tc.fillRect(0, 0, W, H); bc.drawImage(cv.tmp, 0, 0);              // foil lies flat over the relief
+      tc.globalCompositeOperation = 'source-over';
+    }
     drawDecals(cc, decals, map, ppm, off);
     // decals read as slightly inked-in: lower the bump a hair where they are
     bc.save(); bc.globalAlpha = 0.18; bc.globalCompositeOperation = 'multiply'; bc.restore();
@@ -308,5 +367,5 @@ const TEXGEN = (() => {
     c.putImageData(id, 0, 0);
   }
 
-  return { WEAVES, weaveTile, composeFace, composeFrame, composeEva, composeGrip, composeCap, composeHeat, mk };
+  return { WEAVES, SURFACES, INKS, weaveTile, composeFace, composeFrame, composeEva, composeGrip, composeCap, composeHeat, mk };
 })();
