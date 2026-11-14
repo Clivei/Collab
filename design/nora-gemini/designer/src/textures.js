@@ -274,7 +274,7 @@ const TEXGEN = (() => {
       tc.globalCompositeOperation = 'source-in';
       const pat = tc.createPattern(holoTile(ink), 'repeat'), k = Math.max(0.5, ppm / 5);
       tc.save(); tc.scale(k, k); tc.fillStyle = pat; tc.fillRect(0, 0, W / k + 2, H / k + 2); tc.restore(); cc.drawImage(cv.tmp, 0, 0);
-      tc.fillStyle = 'rgb(255,46,255)'; tc.fillRect(0, 0, W, H); rc.drawImage(cv.tmp, 0, 0);             // smooth + metallic
+      tc.fillStyle = 'rgb(255,50,140)'; tc.fillRect(0, 0, W, H); rc.drawImage(cv.tmp, 0, 0);             // smooth + semi-metallic (stays bright in dark studios)
       tc.fillStyle = '#fff'; tc.fillRect(0, 0, W, H); cv.fx.getContext('2d').drawImage(cv.tmp, 0, 0);      // iridescence mask
       tc.fillStyle = 'rgb(150,150,150)'; tc.fillRect(0, 0, W, H); bc.drawImage(cv.tmp, 0, 0);              // foil lies flat over the relief
       tc.globalCompositeOperation = 'source-over';
